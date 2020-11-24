@@ -1,25 +1,131 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Peer Assessment 1"
+output: "html_document"
+keep_md: true
 ---
 
 
 ## Loading and preprocessing the data
+activity <- read.csv("~/Desktop/Exploratory data Analysis/Week02 assignment/activity.csv")
+ 
+library(ggplot2)
+library(dplyr)
+Sys.setlocale("LC_TIME", "English")
 
+str(activity)
 
+#What is mean total number of steps taken per day?
+ 
+#create and print number of steps per day
 
-## What is mean total number of steps taken per day?
+StepsPerDay <- aggregate(activity$steps, list(activity$date), FUN=sum)
+colnames(StepsPerDay) <- c("Date", "Steps")
+StepsPerDay
 
+#draw the histogram
+
+g <- ggplot(StepsPerDay, aes(Steps))
+g+geom_histogram(boundary=0, binwidth=2500, col="darkgreen", fill="lightgreen")+ggtitle("Histogram of steps per day")+xlab("Steps")+ylab("Frequency")+theme(plot.title = element_text(face="bold", size=12))+scale_x_continuous(breaks=seq(0,25000,2500))+scale_y_continuous(breaks=seq(0,18,2))
+
+#Mean
+
+mean(StepsPerDay$Steps, na.rm=TRUE)
+[1] 10766.19
+
+#Median
+
+median(StepsPerDay$Steps, na.rm=TRUE)
+[1] 10765
 
 
 ## What is the average daily activity pattern?
 
+#create table with steps per time
+ 
+StepsPerTime <- aggregate(steps~interval,data=activity,FUN=mean,na.action=na.omit)
 
+
+#variable time (more comprensible for the graph axis)
+
+StepsPerTime$time <- StepsPerTime$interval/100
+
+#draw the line plot
+
+
+h <- ggplot(StepsPerTime, aes(time, steps))
+h+geom_line(col="brown")+ggtitle("Average steps per time interval")+xlab("Time")+ylab("Steps")+theme(plot.title = element_text(face="bold", size=12))
+
+#2. 5-minute interval (on average across all the days) with the maximum number of steps
+
+#table for dplyr
+ST <- tbl_df(StepsPerTime)
+#find the column
+ST %>% select(time, steps) %>% filter(steps==max(ST$steps))
+
+Source: local data frame [1 x 2]
+
+   time    steps
+   (dbl)    (dbl)
+ 1  8.35 206.1698
 
 ## Imputing missing values
 
+#table for dplyr
+
+ACT <- tbl_df(activity)
+
+#find the column
+
+ACT %>% filter(is.na(steps)) %>% summarize(missing_values = n())
+
+Source: local data frame [1 x 1]
+
+  missing_values
+            (int)
+1           2304
+
+#values without NA are imputed in a new column
+
+activity$CompleteSteps <- ifelse(is.na(activity$steps), round(StepsPerTime$steps[match(activity$interval, StepsPerTime$interval)],0), activity$steps)
+
+
+#new dataset activityFull
+
+activityFull <- data.frame(steps=activity$CompleteSteps, interval=activity$interval, date=activity$date)
+#see first 10 values of the new dataset
+
+head(activityFull, n=10)
+
+#Mean
+mean(StepsPerDayFull$Steps)
+[1] 10765.64
+
+#Median
+median(StepsPerDayFull$Steps)
+[1] 10762
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+#Create variable with date in correct format
+activityFull$RealDate <- as.Date(activityFull$date, format = "%Y-%m-%d")
+
+#create a variable with weekdays name
+activityFull$weekday <- weekdays(activityFull$RealDate)
+
+#create a new variable indicating weekday or weekend
+activityFull$DayType <- ifelse(activityFull$weekday=='Saturday' | activityFull$weekday=='Sunday', 'weekend','weekday')
+
+#see first 10 values
+head(activityFull, n=10)
+
+#create table with steps per time across weekdaydays or weekend days
+StepsPerTimeDT <- aggregate(steps~interval+DayType,data=activityFull,FUN=mean,na.action=na.omit)
+
+#variable time (more comprensible for the graph axis)
+
+StepsPerTimeDT$time <- StepsPerTime$interval/100
+#draw the line plot
+
+j <- ggplot(StepsPerTimeDT, aes(time, steps))
+j+geom_line(col="darkred")+ggtitle("Average steps per time interval: weekdays vs. weekends")+xlab("Time")+ylab("Steps")+theme(plot.title = element_text(face="bold", size=12))+facet_grid(DayType ~ .)
